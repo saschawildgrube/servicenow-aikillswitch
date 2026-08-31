@@ -32,9 +32,9 @@
         <sys_created_by/>
         <sys_created_on/>
         <sys_id>e714f7ddc38b03504b4f311f050131ea</sys_id>
-        <sys_mod_count>0</sys_mod_count>
+        <sys_mod_count>2</sys_mod_count>
         <sys_updated_by>admin</sys_updated_by>
-        <sys_updated_on>2026-08-31 07:20:30</sys_updated_on>
+        <sys_updated_on>2026-08-31 07:22:11</sys_updated_on>
         <template/>
         <trackable>true</trackable>
         <uninstall_blocked>false</uninstall_blocked>
@@ -45,7 +45,7 @@
         <x_snc_devtools_documentation_url/>
         <x_snc_devtools_maintainer>Sascha Wildgrube</x_snc_devtools_maintainer>
         <x_snc_devtools_maintainer_email>sascha.wildgrube@servicenow.com</x_snc_devtools_maintainer_email>
-        <x_snc_devtools_repo_url/>
+        <x_snc_devtools_repo_url>https://github.com/saschawildgrube/servicenow-aikillswitch</x_snc_devtools_repo_url>
         <x_snc_devtools_showstopper>false</x_snc_devtools_showstopper>
         <x_snc_devtools_showstopper_details/>
         <x_snc_wildgrubelab_test/>
