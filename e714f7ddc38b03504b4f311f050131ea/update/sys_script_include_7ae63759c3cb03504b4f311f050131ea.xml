@@ -337,6 +337,14 @@ The function may be embedded into an installation procedure that first deactivat
 	{
 		gs.info(PrepareLogInfo(vPayload));
 	}
+	function PrepareLogError(vPayload)
+	{
+		return RenderValue(vPayload);
+	}	
+	function LogError(vPayload)
+	{
+		gs.error(PrepareLogError(vPayload));
+	}	
 	function GlideRecordSetValue(grRecord,strField,strValue)
 	{
 		if (IsValidRecord(grRecord) == false)
@@ -529,14 +537,14 @@ The function may be embedded into an installation procedure that first deactivat
         <sys_created_by>admin</sys_created_by>
         <sys_created_on>2026-08-31 07:31:59</sys_created_on>
         <sys_id>7ae63759c3cb03504b4f311f050131ea</sys_id>
-        <sys_mod_count>9</sys_mod_count>
+        <sys_mod_count>10</sys_mod_count>
         <sys_name>InstanceDeactivateAI</sys_name>
         <sys_package display_value="AI Kill Switch" source="e714f7ddc38b03504b4f311f050131ea">e714f7ddc38b03504b4f311f050131ea</sys_package>
         <sys_policy/>
         <sys_scope display_value="AI Kill Switch">e714f7ddc38b03504b4f311f050131ea</sys_scope>
         <sys_update_name>sys_script_include_7ae63759c3cb03504b4f311f050131ea</sys_update_name>
         <sys_updated_by>admin</sys_updated_by>
-        <sys_updated_on>2026-08-31 07:54:25</sys_updated_on>
+        <sys_updated_on>2026-08-31 07:57:16</sys_updated_on>
         <x_snc_devtools_sys_ui_script/>
     </sys_script_include>
     <sys_es_latest_script action="INSERT_OR_UPDATE">
