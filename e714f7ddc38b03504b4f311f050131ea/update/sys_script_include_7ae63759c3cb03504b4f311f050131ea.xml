@@ -507,6 +507,278 @@ The function may be embedded into an installation procedure that first deactivat
 			return vValue;
 		}
 		return GetValue(vObject[vKey1],vKey2,vKey3,vKey4,vKey5,vKey6,vKey7,vKey8,vKey9,vKey10);
+	}
+	function RenderRecordSummary(grRecord)
+	{
+		if (IsValidRecord(grRecord) == false)
+		{
+			return '';
+		}
+		
+		var strTable = grRecord.getRecordClassName();
+
+		if (IsValidDatabaseView(strTable))
+		{
+			strSummary = strTable + ': ';
+
+			var grDbView = new GlideRecord('sys_db_view');
+			grDbView.addQuery('name','=',strTable);
+			grDbView.query();
+			if (grDbView.next() == false)
+			{
+				return '';
+			}
+			var grDbViewTables = new GlideRecord('sys_db_view_table');
+			grDbViewTables.addQuery('view','=',grDbView.sys_id);
+			grDbViewTables.orderBy('variable_prefix');
+			grDbViewTables.query();
+			var bFirst = true;
+			while(grDbViewTables.next())
+			{
+				if (bFirst == false)
+				{
+					strSummary += ' / ';
+				}
+				var strSysIdFieldName = grDbViewTables.variable_prefix + '_sys_id';
+				strSummary += strSysIdFieldName + ':' + grRecord.getValue(strSysIdFieldName);
+				bFirst = false;
+			}
+			return strSummary;
+		}
+
+		if (IsExistingRecord(grRecord) == false)
+		{
+			return '';
+		}	
+
+		var strSummary = '';
+		
+		strSummary += strTable;
+		strSummary += ': ';
+		strSummary += grRecord.sys_id;
+		
+		if (IsValidColumn(strTable,'number'))
+		{
+			var strNumber = GetStringValue(grRecord.number);
+			if (strNumber != '')
+			{
+				strSummary += ': ';
+				strSummary += GetStringValue(grRecord.number);
+			}
+		}
+
+		if (strTable == 'sys_dictionary')
+		{
+			strSummary += ': ';
+			strSummary += '"' + GetStringValue(grRecord.getValue('name'));
+			var strElement = GetStringValue(grRecord.getValue('element'));
+			if (strElement != '')
+			{
+				strSummary += '.' + strElement;
+			}
+			strSummary += '"';
+			return strSummary;
+		}
+
+		if (strTable == 'sys_documentation')
+		{
+			strSummary += ': ';
+			strSummary += '"' + GetStringValue(grRecord.getValue('name'));
+			var strElement = GetStringValue(grRecord.getValue('element'));
+			if (strElement != '')
+			{
+				strSummary += '.' + strElement;
+			}
+			strSummary += '.' + GetStringValue(grRecord.getValue('language'))
+			strSummary += '"';
+			return strSummary;
+		}	
+
+		var aColumns = [
+			'api_name',
+			'name',
+			'user_name',
+			'short_description',
+			'title',
+			'sys_name',
+			'sys_update_name'];
+
+		for (var nColumn = 0; nColumn < aColumns.length; nColumn++)
+		{
+			var strColumn = aColumns[nColumn];
+			if (IsValidColumn(strTable,strColumn) == true)
+			{
+				var strValue = GetStringValue(grRecord.getValue(strColumn));
+				if (strValue != '')
+				{
+					strSummary += ': ';
+					strSummary += '"' + GetStringValue(grRecord.getValue(strColumn)) + '"';
+					return strSummary;
+				}
+			}
+		}
+		
+		return strSummary;
+	}		
+	var TransactionCacheAPI = Class.create();
+	var g_transactionCache = {};
+	TransactionCacheAPI.prototype =
+	{ 
+		initialize:function(strContext)
+		{
+			this.SetContext(strContext);
+		},
+		
+		SetContext:function(strContext)
+		{
+			this.m_strContext = GetStringValue(strContext);
+		},
+		
+		GetContext:function()
+		{
+			var strContext = GetStringValue(this.m_strContext);
+			if (strContext == '')
+			{
+				strContext = 'default';
+			}
+			return strContext;
+		},
+		
+		SetItem:function(strKey, vValue)
+		{
+			if (g_transactionCache[this.GetContext()] == null)
+			{
+				g_transactionCache[this.GetContext()] = {};
+			}
+			g_transactionCache[this.GetContext()][GetStringValue(strKey)] = vValue;
+		},
+		
+		GetItem:function(strKey)
+		{
+			var vValue = GetValue(g_transactionCache,this.GetContext(),strKey);
+			return vValue;
+		},
+
+		GetAllItems: function()
+		{
+			return GetValue(g_transactionCache,this.GetContext());
+		},
+		
+		type: 'TransactionCacheAPI'
+		
+		
+	};	
+	function IsValidDatabaseView(strView)
+	{
+		var cache = new TransactionCacheAPI('DEVTOOLS');
+		var bDatabaseView = cache.GetItem('IsValidDatabaseView_'+strView);
+		if (bDatabaseView !== null)
+		{
+			return bDatabaseView;
+		}		
+
+		bDatabaseView = false;
+
+		var grSDV = new GlideRecord('sys_db_view');
+		grSDV.addQuery('name','=',GetStringValue(strView));
+		grSDV.query();
+		if (grSDV.next() == true)
+		{
+			bDatabaseView = true;
+		}
+		cache.SetItem('IsValidDatabaseView_'+strView,bDatabaseView);
+		return bDatabaseView;
+	}
+	function IsValidTable(strTable,bNoCache)
+	{
+		strTable = GetStringValue(strTable);
+		bNoCache = GetBoolValue(bNoCache);
+		
+		if (strTable == '')
+		{
+			return false;
+		}
+
+		if (strTable.trim() != strTable)
+		{
+			return false;
+		}
+		
+		var bResult = null;
+
+		if (bNoCache == false)
+		{
+			var cache = new TransactionCacheAPI('DEVTOOLS');
+			bResult = cache.GetItem('IsValidTable_'+strTable);
+			if (bResult != null)
+			{
+				return bResult;
+			}
+		}	
+		
+		var tableUtils = new TableUtils(strTable);
+		bResult = result = tableUtils.tableExists();
+
+		if (bNoCache == false)
+		{
+			cache.SetItem('IsValidTable_'+strTable,bResult);
+		}
+		return bResult;
+	}
+
+	function IsValidColumn(strTable, strColumn)
+	{
+		strTable = GetStringValue(strTable);
+		strColumn = GetStringValue(strColumn);
+		if (IsValidTable(strTable) == false && IsValidDatabaseView(strTable) == false)
+		{
+			return false;
+		}
+		
+		var cache = new TransactionCacheAPI('DEVTOOLS');
+		var bResult = cache.GetItem('IsValidColumn_'+strTable+'_'+strColumn);
+		if (bResult != null)
+		{
+			return bResult;
+		}		
+		
+		bResult = false;
+		
+		var strScript = "var table = new GlideTableDescriptor.get(param1);\n";
+		strScript += "result = (table.getElementDescriptor(param2) != null);";
+		var bValid = RunScriptInGlobalScope(strScript,strTable,strColumn);
+		if (bValid == true)
+		{
+			bResult = true;
+		}
+		else
+		{
+			if (!(IsValidDatabaseView(strTable) == true && strColumn == 'sys_id'))
+			{
+				var grTable = new GlideRecord(strTable);
+				if (grTable.isValidField(strColumn) == true)
+				{
+					bResult = true;
+				}
+			} 
+		}
+		cache.SetItem('IsValidColumn_'+strTable+'_'+strColumn,bResult);
+		return bResult;
+	}
+	
+	function IsValidRecord(record)
+	{
+		if (record == null)
+		{
+			return false;
+		}
+		var strType = GetType(record);
+		if (   strType != 'ScopedGlideRecord'
+			&& strType != 'ScopedGlideRecordSecure')
+		{
+			return false;
+		}
+		return true;
 	}	
 	function GlideRecordUpdate(grRecord)
 	{
@@ -627,14 +899,14 @@ The function may be embedded into an installation procedure that first deactivat
         <sys_created_by>admin</sys_created_by>
         <sys_created_on>2026-08-31 07:31:59</sys_created_on>
         <sys_id>7ae63759c3cb03504b4f311f050131ea</sys_id>
-        <sys_mod_count>12</sys_mod_count>
+        <sys_mod_count>14</sys_mod_count>
         <sys_name>InstanceDeactivateAI</sys_name>
         <sys_package display_value="AI Kill Switch" source="e714f7ddc38b03504b4f311f050131ea">e714f7ddc38b03504b4f311f050131ea</sys_package>
         <sys_policy/>
         <sys_scope display_value="AI Kill Switch">e714f7ddc38b03504b4f311f050131ea</sys_scope>
         <sys_update_name>sys_script_include_7ae63759c3cb03504b4f311f050131ea</sys_update_name>
         <sys_updated_by>admin</sys_updated_by>
-        <sys_updated_on>2026-08-31 08:01:16</sys_updated_on>
+        <sys_updated_on>2026-08-31 08:20:37</sys_updated_on>
         <x_snc_devtools_sys_ui_script/>
     </sys_script_include>
     <sys_es_latest_script action="INSERT_OR_UPDATE">
