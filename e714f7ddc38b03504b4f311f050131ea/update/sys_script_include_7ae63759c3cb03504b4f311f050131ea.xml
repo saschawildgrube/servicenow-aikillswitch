@@ -19,6 +19,18 @@ The function may be embedded into an installation procedure that first deactivat
 	{
 		return gs.hasRole('maint');
 	}	
+	function GetStringValue(vInput)
+	{
+		if (vInput == undefined)
+		{
+			return '';
+		}
+		if (vInput == null)
+		{
+			return '';
+		}
+		return ''+vInput;
+	}	
 	function GetIntegerValue(vValue)
 	{
 		if (vValue === true)
@@ -64,6 +76,40 @@ The function may be embedded into an installation procedure that first deactivat
 		}
 		return false;
 	}
+	function IsValidSysId(strSysId)
+	{
+		strSysId = GetStringValue(strSysId);
+
+		var anomalies = GetSysIdAnomalies();
+		var strTable = GetStringValue(GetValue(anomalies,strSysId));
+		if (strTable != '')
+		{
+			return true;
+		}
+		if (strSysId.length == 3)
+		{
+			var grCurrency = new GlideRecord('fx_currency');
+			grCurrency.addQuery('sys_id','=',strSysId);
+			grCurrency.query();
+			if (grCurrency.next() == true)
+			{
+				return true;
+			}
+			else
+			{
+				return false;
+			}
+		}
+		if (strSysId.length != 32)
+		{
+			return false;
+		}
+		if (StringCheckRegEx(strSysId,'([0-9a-f]){32}') == false)
+		{
+			return false;
+		}
+		return true;
+	}	
 	function RenderValue(vValue, bHideEmpty, bUnsortedKeys, bCompactOutput, nLevel)
 	{
 		bHideEmpty = GetBoolValue(bHideEmpty);
@@ -291,12 +337,84 @@ The function may be embedded into an installation procedure that first deactivat
 	{
 		gs.info(PrepareLogInfo(vPayload));
 	}
+	function GlideRecordSetValue(grRecord,strField,strValue)
+	{
+		if (IsValidRecord(grRecord) == false)
+		{
+			return false;
+		}
+		if (strField == 'sys_id')
+		{
+			if (grRecord.isNewRecord() != true)
+			{
+				return false;
+			}
+			grRecord.setNewGuidValue(strValue);
+		}
+		else
+		{
+			if (strValue == null)
+			{
+				strValue = '';
+			}
+			grRecord.setValue(strField,strValue);
+		}
+		return true;
+	}	
+	function SetProperty(strName, strValue, bAdd)
+	{
+		if (strName == false)
+		{
+			return false;
+		}
+		
+		strName = GetStringValue(strName);
+		strValue = GetStringValue(strValue);
+		bAdd = GetBoolValue(bAdd);
+		
+		if (strName == '')
+		{
+			return false;
+		}
+		
+		if (bAdd == true)
+		{
+			var vResult = RecordQueryOrInsert(
+				'sys_properties',
+				{
+					name: strName,
+					sys_scope: GetScopeSysIdFromPropertyName(strName)
+				}, 
+				{
+					value: strValue
+				}, true);
+			if (vResult == false)
+			{
+				return false;
+			}
+			return true;
+		}
+
+		var grProp = new GlideRecord('sys_properties');
+		grProp.addQuery('name','=',strName);
+		grProp.query();
+		if (grProp.next() == false)
+		{
+			return false;
+		}
+		GlideRecordSetValue(grProp,'value',strValue);
+		var vResult = GlideRecordUpdate(grProp);
+		if (IsValidSysId(vResult) == false)
+		{
+			return false;
+		}
+		return true;
+	}	
 	function GlideRecordUpdate(grRecord)
 	{
 		gs.info(x_snc_devtools.RenderRecordSummary(grRecord));
 		//grRecord.update();
 	}
-
 
 
 	if (IsUserMaint() == false)
@@ -411,14 +529,14 @@ The function may be embedded into an installation procedure that first deactivat
         <sys_created_by>admin</sys_created_by>
         <sys_created_on>2026-08-31 07:31:59</sys_created_on>
         <sys_id>7ae63759c3cb03504b4f311f050131ea</sys_id>
-        <sys_mod_count>7</sys_mod_count>
+        <sys_mod_count>9</sys_mod_count>
         <sys_name>InstanceDeactivateAI</sys_name>
         <sys_package display_value="AI Kill Switch" source="e714f7ddc38b03504b4f311f050131ea">e714f7ddc38b03504b4f311f050131ea</sys_package>
         <sys_policy/>
         <sys_scope display_value="AI Kill Switch">e714f7ddc38b03504b4f311f050131ea</sys_scope>
         <sys_update_name>sys_script_include_7ae63759c3cb03504b4f311f050131ea</sys_update_name>
         <sys_updated_by>admin</sys_updated_by>
-        <sys_updated_on>2026-08-31 07:45:33</sys_updated_on>
+        <sys_updated_on>2026-08-31 07:54:25</sys_updated_on>
         <x_snc_devtools_sys_ui_script/>
     </sys_script_include>
     <sys_es_latest_script action="INSERT_OR_UPDATE">
