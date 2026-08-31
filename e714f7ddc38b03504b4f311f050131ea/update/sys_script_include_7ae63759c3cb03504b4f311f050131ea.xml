@@ -418,6 +418,81 @@ The function may be embedded into an installation procedure that first deactivat
 		}
 		return true;
 	}	
+	function GetType(vValue)
+	{
+		// https://stackoverflow.com/questions/1249531/how-to-get-a-javascript-objects-class
+		// https://docs.servicenow.com/bundle/madrid-application-development/page/script/javascript-tools/reference/r_IsJavaObject.html
+		
+		if (vValue === null)
+		{
+			return 'null';
+		}
+		var strType = typeof vValue;
+		if (strType == 'undefined')
+		{
+			return 'undefined';
+		}
+		if (strType == 'object')
+		{
+			var strObject = GetStringValue(Object.prototype.toString.call(vValue));
+			strType = GetValue(strObject.match(/^\[object\s(.*)\]$/),1);
+			if (strType == 'JavaObject')
+			{
+				return strType;
+			}
+			return strType;
+		}
+		return strType;
+	}	
+	function GetValue(vObject, vKey1, vKey2, vKey3, vKey4, vKey5, vKey6, vKey7, vKey8, vKey9, vKey10)
+	{
+		if (vObject == undefined)
+		{
+			return null;
+		}
+		if (vKey1 == undefined)
+		{
+			return null;
+		}
+		if (IsArray(vKey1) == true)
+		{
+			if (vKey2 != null)
+			{
+				return null;
+			}
+			if (vKey1.length > 6)
+			{
+				return null;
+			}
+			return GetValue(
+				vObject,
+				GetValue(vKey1,0),
+				GetValue(vKey1,1),
+				GetValue(vKey1,2),
+				GetValue(vKey1,3),
+				GetValue(vKey1,4),
+				GetValue(vKey1,5),
+				GetValue(vKey1,6),
+				GetValue(vKey1,7),
+				GetValue(vKey1,8),
+				GetValue(vKey1,9)
+			);
+		}
+		if (vKey2 == undefined || vKey2 == null)
+		{
+			if (vObject[vKey1] == undefined)
+			{
+				return null;
+			}
+			var vValue = vObject[vKey1];
+			if (GetType(vValue) == 'ScopedGlideElement')
+			{
+				vValue = GetStringValue(vValue);
+			}
+			return vValue;
+		}
+		return GetValue(vObject[vKey1],vKey2,vKey3,vKey4,vKey5,vKey6,vKey7,vKey8,vKey9,vKey10);
+	}	
 	function GlideRecordUpdate(grRecord)
 	{
 		gs.info(x_snc_devtools.RenderRecordSummary(grRecord));
@@ -537,14 +612,14 @@ The function may be embedded into an installation procedure that first deactivat
         <sys_created_by>admin</sys_created_by>
         <sys_created_on>2026-08-31 07:31:59</sys_created_on>
         <sys_id>7ae63759c3cb03504b4f311f050131ea</sys_id>
-        <sys_mod_count>10</sys_mod_count>
+        <sys_mod_count>11</sys_mod_count>
         <sys_name>InstanceDeactivateAI</sys_name>
         <sys_package display_value="AI Kill Switch" source="e714f7ddc38b03504b4f311f050131ea">e714f7ddc38b03504b4f311f050131ea</sys_package>
         <sys_policy/>
         <sys_scope display_value="AI Kill Switch">e714f7ddc38b03504b4f311f050131ea</sys_scope>
         <sys_update_name>sys_script_include_7ae63759c3cb03504b4f311f050131ea</sys_update_name>
         <sys_updated_by>admin</sys_updated_by>
-        <sys_updated_on>2026-08-31 07:57:16</sys_updated_on>
+        <sys_updated_on>2026-08-31 07:59:22</sys_updated_on>
         <x_snc_devtools_sys_ui_script/>
     </sys_script_include>
     <sys_es_latest_script action="INSERT_OR_UPDATE">
