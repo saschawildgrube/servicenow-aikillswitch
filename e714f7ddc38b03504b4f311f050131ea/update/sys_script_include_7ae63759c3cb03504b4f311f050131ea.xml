@@ -6,12 +6,13 @@
         <caller_access/>
         <client_callable>false</client_callable>
         <description>Deactivates all (known) AI capabilities on a platform. Executing this function requires "maint" access.&#13;
+The check if the user is "maint" can be suppressed by setting the parameter bRunAsAdmin to true - in this case, some operations will report errors.&#13;
 WARNING: This cannot be easily undone. Only use after carefully considering the consequences!&#13;
 The function may be embedded into an installation procedure that first deactivates everything and then selectively activates whitelisted capabilities.</description>
         <mobile_callable>false</mobile_callable>
         <name>InstanceDeactivateAI</name>
         <sandbox_callable>false</sandbox_callable>
-        <script><![CDATA[function InstanceDeactivateAI()
+        <script><![CDATA[function InstanceDeactivateAI(bRunAsAdmin)
 {
 
 	// Carved out functions
@@ -346,7 +347,7 @@ The function may be embedded into an installation procedure that first deactivat
 	}
 	function PrepareLogInfo(vPayload)
 	{
-		return RenderValue(vPayload);
+		return 'InstanceDeactivateAI: ' + RenderValue(vPayload);
 	}
 	function Log(vPayload)
 	{
@@ -354,7 +355,7 @@ The function may be embedded into an installation procedure that first deactivat
 	}
 	function PrepareLogError(vPayload)
 	{
-		return RenderValue(vPayload);
+		return 'InstanceDeactivateAI: ERROR: ' + RenderValue(vPayload);
 	}	
 	function LogError(vPayload)
 	{
@@ -512,7 +513,7 @@ The function may be embedded into an installation procedure that first deactivat
 	{
 		if (IsValidRecord(grRecord) == false)
 		{
-			return '';
+			return 'not a valid record';
 		}
 		
 		var strTable = grRecord.getRecordClassName();
@@ -546,10 +547,6 @@ The function may be embedded into an installation procedure that first deactivat
 			return strSummary;
 		}
 
-		if (IsExistingRecord(grRecord) == false)
-		{
-			return '';
-		}	
 
 		var strSummary = '';
 		
@@ -818,9 +815,8 @@ The function may be embedded into an installation procedure that first deactivat
 		
 		bResult = false;
 		
-		var strScript = "var table = new GlideTableDescriptor.get(param1);\n";
-		strScript += "result = (table.getElementDescriptor(param2) != null);";
-		var bValid = RunScriptInGlobalScope(strScript,strTable,strColumn);
+		var table = new GlideTableDescriptor.get(strTable);
+		var bValid = (table.getElementDescriptor(strColumn) != null);
 		if (bValid == true)
 		{
 			bResult = true;
@@ -848,7 +844,9 @@ The function may be embedded into an installation procedure that first deactivat
 		}
 		var strType = GetType(record);
 		if (   strType != 'ScopedGlideRecord'
-			&& strType != 'ScopedGlideRecordSecure')
+			&& strType != 'ScopedGlideRecordSecure'
+			&& strType != 'GlideRecord'
+			&& strType != 'GlideRecordSecure')
 		{
 			return false;
 		}
@@ -856,23 +854,31 @@ The function may be embedded into an installation procedure that first deactivat
 	}	
 	function GlideRecordUpdate(grRecord)
 	{
-		//gs.info(RenderRecordSummary(grRecord));
-		grRecord.update();
+		Log('Updating: ' + RenderRecordSummary(grRecord));
+		var result = grRecord.update();
+		if (result == false)
+		{
+			LogError('Could not update record: ' + RenderRecordSummary(grRecord));
+		}
 	}
 
-
-	if (IsUserMaint() == false)
+	bRunAsAdmin = GetBoolValue(bRunAsAdmin);
+ 
+	if (bRunAsAdmin == false)
 	{
-		LogError('InstanceDeactivateAI requires "maint" access!');
-		return false;
+		if (IsUserMaint() == false)
+		{
+			LogError('"maint" access is required!');
+			return false;
+		}
 	}
 
 
 
-	Log('InstanceDeactivateAI: START');
+	Log('START');
 
 
-	Log('InstanceDeactivateAI: Removing urls from LLMGateway, LLMProxy, MLPredictor-Triton services...');
+	Log('Removing urls from LLMGateway, LLMProxy, MLPredictor-Triton services...');
 	var aLLMServices = ['LLMGateway','LLMProxy','MLPredictor-Triton'];
 	var strEncodedQuery = 'nameIN' + GetStringValue(aLLMServices);
 
@@ -884,88 +890,99 @@ The function may be embedded into an installation procedure that first deactivat
 	{
 		aServicesSysIds.push(GetStringValue(grSS.sys_id));
 	}
-				
-	var grSSE = new GlideRecord('sys_service_endpoint');
-	grSSE.addQuery('service','IN',GetStringValue(aServicesSysIds));
-	grSSE.query();
-	while (grSSE.next() == true)
+
+	if (aServicesSysIds.length == 0)
 	{
-		grSSE.url = '';
-		GlideRecordUpdate(grSSE);
-		Log('InstanceDeactivateAI: ' + RenderRecordSummary(grSSE));
-
+		LogError('sys_service records could not be identified!');
 	}
+	else
+	{
+		var grSSE = new GlideRecord('sys_service_endpoint');
+		grSSE.addQuery('service','IN',GetStringValue(aServicesSysIds));
+		grSSE.query();
+		while (grSSE.next() == true)
+		{
+			grSSE.url = '';
+			GlideRecordUpdate(grSSE);
+		}
+	}
+				
+	
 
-	Log('InstanceDeactivateAI: Removing url from Now LLM http connection...');
+	Log('Removing url from Now LLM http connection...');
 
 	var grConnection = new GlideRecord('http_connection');
 	grConnection.addQuery('name','=','Now LLM');
 	grConnection.query();
 
-	while (grConnection.next() == true)
+	if (grConnection.getRowCount() == 0)
 	{
-		grConnection.connection_url = '';
-		grConnection.host = '';
-		GlideRecordUpdate(grConnection);
-		Log('InstanceDeactivateAI: ' + RenderRecordSummary(grConnection));
+		LogError('"Now LLM" http_connection record could not be found.');
+
+	}
+	else
+	{
+		while (grConnection.next() == true)
+		{
+			grConnection.connection_url = '';
+			grConnection.host = '';
+			GlideRecordUpdate(grConnection);
+		}
 	}
 
-	Log('InstanceDeactivateAI: Deactivating Now Assist Deployments...');
+
+	Log('Deactivating Now Assist Deployments...');
 	var grNAD = new GlideRecord('sys_now_assist_deployment');
-	grNAD.addActiveQuery();
+	//grNAD.addActiveQuery();
 	grNAD.query();
 	while (grNAD.next())
 	{
 		grNAD.active = false;
 		GlideRecordUpdate(grNAD);
-		Log('InstanceDeactivateAI: ' + RenderRecordSummary(grNAD));
 	}
 
-	Log('InstanceDeactivateAI: Deactivating all AI Agents...');
+	Log('Deactivating all AI Agents...');
 	var grAgents = new GlideRecord('sn_aia_agent_config');
-	grAgents.addActiveQuery();
+	//grAgents.addActiveQuery();
 	grAgents.query();
 	while (grAgents.next())
 	{
 		grAgents.active = false;
 		GlideRecordUpdate(grAgents);
-		Log('InstanceDeactivateAI: ' + RenderRecordSummary(grAgents));
 	}
 
 
-	Log('InstanceDeactivateAI: Deactivating all AI Skills...');
+	Log('Deactivating all AI Skills...');
 	var grSkills = new GlideRecord('sys_one_extend_capability');
-	grSkills.addActiveQuery();
+	//grSkills.addActiveQuery();
 	grSkills.addQuery('type','=','skill');
 	grSkills.query();
 	while (grSkills.next())
 	{
 		grSkills.active = false;
 		GlideRecordUpdate(grSkills);
-		Log('InstanceDeactivateAI: ' + RenderRecordSummary(grSkills));
 	}
 
 
-	Log('InstanceDeactivateAI: Deactivating all OneExtend Definition Configs...');
+	Log('Deactivating all OneExtend Definition Configs...');
 
 	var grOEDC = new GlideRecord('sys_one_extend_definition_config');
-	grOEDC.addActiveQuery();
+	//grOEDC.addActiveQuery();
 	grOEDC.query();
 	while (grOEDC.next())
 	{
 		grOEDC.active = false;
 		GlideRecordUpdate(grOEDC,true);
-		Log('InstanceDeactivateAI: ' + RenderRecordSummary(grOEDC));
 	}
 
-	Log('InstanceDeactivateAI: Deactivating Now Assist Code capabilities...');
+	Log('Deactivating Now Assist Code capabilities...');
 
 	SetProperty('sn_now_assist_code.enable_code_assist','false');
     SetProperty('sn_now_assist_code.enable_auto_complete','false');
     SetProperty('sn_now_assist_code.enable_prompt_modal','false');
     SetProperty('sn_now_assist_code.enable_promptless_experience','false');
 
-	Log('InstanceDeactivateAI: END');
+	Log('END');
 
 	return true;
 }]]></script>
@@ -973,14 +990,14 @@ The function may be embedded into an installation procedure that first deactivat
         <sys_created_by>admin</sys_created_by>
         <sys_created_on>2026-08-31 07:31:59</sys_created_on>
         <sys_id>7ae63759c3cb03504b4f311f050131ea</sys_id>
-        <sys_mod_count>17</sys_mod_count>
+        <sys_mod_count>30</sys_mod_count>
         <sys_name>InstanceDeactivateAI</sys_name>
         <sys_package display_value="AI Kill Switch" source="e714f7ddc38b03504b4f311f050131ea">e714f7ddc38b03504b4f311f050131ea</sys_package>
         <sys_policy/>
         <sys_scope display_value="AI Kill Switch">e714f7ddc38b03504b4f311f050131ea</sys_scope>
         <sys_update_name>sys_script_include_7ae63759c3cb03504b4f311f050131ea</sys_update_name>
         <sys_updated_by>admin</sys_updated_by>
-        <sys_updated_on>2026-08-31 08:26:58</sys_updated_on>
+        <sys_updated_on>2026-09-16 10:17:47</sys_updated_on>
         <x_snc_devtools_sys_ui_script/>
     </sys_script_include>
     <sys_es_latest_script action="INSERT_OR_UPDATE">
